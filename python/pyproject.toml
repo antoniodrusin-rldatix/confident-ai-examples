@@ -1,0 +1,6 @@
+[project]
+name = "ai-logging-tests"
+version = "0.0.0"
+description = "LangGraph + observability demos (Confident AI, OpenTelemetry)"
+readme = "README.md"
+requires-python = ">=3.11"

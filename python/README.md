@@ -2,7 +2,7 @@
 
 Small **LangGraph** demos: one **agent** node (chat) and one **tools** node (`get_weather`). No real LLM is required by default (synthetic tool call). You can optionally point at a local OpenAI-compatible server.
 
-Requires **Python 3.10+**.
+Requires **Python 3.11+**. The **`.python-version`** file is **3.12** for [pyenv](https://github.com/pyenv/pyenv) and similar tools; use any installed 3.11+ otherwise.
 
 ---
 
@@ -10,21 +10,13 @@ Requires **Python 3.10+**.
 
 Create a venv in this folder, activate it, then install packages. Run all examples **from this directory** (`python`) so imports resolve.
 
-**Linux / macOS**
+If `python` / `python3` on your PATH is still 3.10 or older, use an explicit interpreter (for example **`py -3`** on Windows to pick the newest Python 3.x registered with the [launcher](https://docs.python.org/3/using/windows.html#python-launcher-for-windows)).
 
-```bash
-cd python
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-**Windows (PowerShell)**
+**PowerShell**
 
 ```powershell
 cd python
-python -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
@@ -46,16 +38,6 @@ This path uses the **Confident AI / DeepEval** tracing integration (`deepeval.tr
 | `CONFIDENT_TRACE_FLUSH` | No | Set to `YES` so traces flush before a short-lived process exits (recommended for one-shot scripts and CI). |
 
 ### Run locally
-
-**Linux / macOS**
-
-```bash
-export CONFIDENT_API_KEY="your_key_here"
-export CONFIDENT_TRACE_FLUSH=YES   # recommended for this script
-python agent_confident.py
-```
-
-**Windows (PowerShell)**
 
 ```powershell
 $env:CONFIDENT_API_KEY = "your_key_here"
@@ -95,15 +77,15 @@ Use **`agent_otel.py`** when you want **OpenTelemetry** spans exported over **OT
 
 **Local collector (default)** — if nothing is set, traces go to `http://localhost:4318/v1/traces`.
 
-```bash
+```powershell
 python agent_otel.py
 ```
 
 **Confident AI via OTLP**
 
-```bash
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://otel.confident-ai.com/v1/traces"
-export OTEL_EXPORTER_OTLP_TRACES_HEADERS="x-confident-api-key=YOUR_CONFIDENT_API_KEY"
+```powershell
+$env:OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://otel.confident-ai.com/v1/traces"
+$env:OTEL_EXPORTER_OTLP_TRACES_HEADERS = "x-confident-api-key=YOUR_CONFIDENT_API_KEY"
 python agent_otel.py
 ```
 
@@ -116,4 +98,4 @@ python agent_otel.py
 | `workflow.py` | Shared graph and nodes; no observability. |
 | `agent_confident.py` | Confident AI tracing via `deepeval` `@observe`. |
 | `agent_otel.py` | OpenTelemetry + OTLP HTTP (`opentelemetry-instrumentation-langchain`). |
-| `otel_export.py` | OTLP HTTP exporter helper used by `agent_otel.py`. |
+| `otel/` | Package: OTLP HTTP exporter helpers (`export.py`) used by `agent_otel.py`. |
