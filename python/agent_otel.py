@@ -3,6 +3,7 @@ LangGraph agent with OpenTelemetry tracing via opentelemetry-instrumentation-lan
 Same workflow as workflow.py: agent -> tools. Spans are created automatically by the
 instrumentor for graph and node execution.
 Uses OTLP HTTP export; same env as root (OTEL_EXPORTER_OTLP_*). No-SSL via otel.export.
+Also prints spans to stdout via ConsoleSpanExporter (in addition to OTLP).
 Set TRACELOOP_TRACE_CONTENT=false to avoid logging prompt/completion content on spans.
 """
 import logging
@@ -11,7 +12,12 @@ import sys
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExportResult
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+    SimpleSpanProcessor,
+    SpanExportResult,
+)
 
 from langgraph.graph import END, START, StateGraph
 
@@ -27,9 +33,10 @@ from opentelemetry.instrumentation.langchain import LangchainInstrumentor
 
 
 def _setup_tracing():
-    """Configure TracerProvider with OTLP exporter (no-SSL) and logging wrapper."""
+    """Configure TracerProvider with OTLP exporter (no-SSL), stdout console export, and logging wrapper."""
     resource = Resource.create({"service.name": "langgraph-agent-otel"})
     provider = TracerProvider(resource=resource)
+    provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter(out=sys.stdout)))
     endpoint = get_otlp_endpoint()
     headers = get_otlp_headers()
     exporter = create_otlp_exporter_no_ssl(endpoint, headers or None)
