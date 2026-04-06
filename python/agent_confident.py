@@ -7,12 +7,13 @@ Env: CONFIDENT_API_KEY; optional CONFIDENT_TRACE_FLUSH=YES for short-lived scrip
 import os
 import random
 import sys
+import uuid
 from typing import Any
 
 from deepeval.annotation import send_annotation
 from deepeval.annotation.api import AnnotationType
 from deepeval.tracing import observe
-from deepeval.tracing.context import current_trace_context
+from deepeval.tracing.context import current_trace_context, update_current_trace
 from langgraph.graph import END, START, StateGraph
 
 from workflow import State, USER_QUERY, agent_node as raw_agent_node, tools_node as raw_tools_node
@@ -50,31 +51,36 @@ def _build_graph():
 
 
 @observe()
-def run_one(query: str | None = None) -> tuple[dict[str, Any], str | None]:
-    """Run one invocation. Parent span here; agent + tools spans are children. Returns (result, trace_uuid). Set CONFIDENT_TRACE_FLUSH=YES to flush before exit."""
+def run_one(query: str | None = None) -> str:
+    """Run one invocation. Parent span here; agent + tools spans are children.
+
+    Returns trace_uuid for send_annotation (matches the Observatory URL).
+    """
+    feedback_thread_id = str(uuid.uuid4())
+    q = query or USER_QUERY
+    update_current_trace(thread_id=feedback_thread_id, input=q)
+    trace = current_trace_context.get()
+    if trace is None:
+        raise RuntimeError("No active Confident trace (current_trace_context is empty).")
+    trace_uuid = trace.uuid
     graph = _build_graph()
-    initial: State = {"user_query": query or USER_QUERY}
-    result = graph.invoke(initial)
-    current_trace = current_trace_context.get()
-    trace_uuid = current_trace.uuid if (current_trace is not None and getattr(current_trace, "uuid", None)) else None
-    return result, trace_uuid
+    graph.invoke({"user_query": q})
+    return trace_uuid
 
 
 def main() -> None:
     try:
         _setup_tracing()
-        _, trace_uuid = run_one()
+        trace_uuid = run_one()
         print("Confident AI trace (agent + tools spans) sent. Check the Observatory.")
-        input("Press Enter to send feedback (or Ctrl+C to skip)... ")
-        if trace_uuid:
-            send_annotation(
-                trace_uuid=trace_uuid,
-                type=AnnotationType.FIVE_STAR_RATING,
-                rating=random.randint(1, 5),
-            )
-            print("Feedback sent.")
-        else:
-            print("No trace UUID; feedback skipped.")
+        print(f"  trace_uuid (Observatory / annotations): {trace_uuid}")
+        input("Press Enter to send feedback on this trace (or Ctrl+C to skip)... ")
+        send_annotation(
+            trace_uuid=trace_uuid,
+            type=AnnotationType.FIVE_STAR_RATING,
+            rating=random.randint(1, 5),
+        )
+        print("Feedback sent.")
     except ValueError as e:
         print(e)
         sys.exit(1)
